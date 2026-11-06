@@ -18,6 +18,7 @@ import { requireUiElements } from './lib/ui-elements.js';
 import { requireIndex } from './lib/indexed-access.js';
 import { isButtonActivationTarget, isTypingTarget } from './lib/input.js';
 import { LANGUAGE_STORAGE_KEY, THEME_STORAGE_KEY, isPreferencePersistenceEnabled, normalizePreferenceStorage, readPreferenceValue, readStoredClueCount, readStoredSeed, setPreferencePersistenceEnabled, storeClueCount, storePreferenceValue, storeSeed } from './lib/preferences.js';
+import { recordSolveTime, type BestTimeRecordResult } from './lib/records.js';
 import {
   createSaveData,
   createSaveFilename,
@@ -25,7 +26,7 @@ import {
   type RestoredSaveFileV1
 } from './lib/persistence.js';
 import { DIGITS, generatePuzzle, type CellValue, type Digit } from './lib/sudoku.js';
-import { getElapsedMs, pauseTimer, startTimer } from './lib/timer.js';
+import { getElapsedMs, pauseTimer, resumeTimer, startTimer } from './lib/timer.js';
 
 interface ApplyValueOptions {
   highlightNote?: boolean;
@@ -34,10 +35,12 @@ interface ApplyValueOptions {
 
 const {
   boardEl,
+  boardPausedOverlayEl,
   padEl,
   statusEl,
   statsEl,
   timerEl,
+  timerPauseEl,
   undoEl,
   redoEl,
   helpButtonEl,
@@ -65,7 +68,12 @@ const {
   hintEl,
   solveEl,
   padTitleEl,
-  hintTextEl
+  hintTextEl,
+  solvedOverlayEl,
+  solvedTitleEl,
+  solvedTimeEl,
+  solvedRecordEl,
+  solvedNewGameEl
 } = requireUiElements();
 
 const state = createInitialGameState();
@@ -73,6 +81,7 @@ const state = createInitialGameState();
 let noteToggleEl: HTMLButtonElement | null = null;
 let highlightNoteToggleEl: HTMLButtonElement | null = null;
 let clearPadButtonEl: HTMLButtonElement | null = null;
+let numPadButtons: HTMLButtonElement[] = [];
 let timerInterval: ReturnType<typeof setInterval> | null = null;
 let statusResetTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -207,18 +216,60 @@ function resetAndStartTimer() {
   startTimer(state.timer);
   syncTimerInterval();
   updateTimerDisplay();
+  updateTimerPauseButton();
 }
 
 function freezeTimer() {
   pauseTimer(state.timer);
   syncTimerInterval();
   updateTimerDisplay();
+  updateTimerPauseButton();
 }
 
-function getSelectedElement() {
-  if (!state.selectedCell) return null;
-  const index = state.selectedCell.row * 9 + state.selectedCell.col;
-  return boardEl.children[index] || null;
+function updateTimerPauseButton() {
+  const solved = state.current.length > 0
+    && state.solution.length > 0
+    && isSolved(state.current, state.solution);
+  timerPauseEl.disabled = state.current.length === 0 || solved;
+  timerPauseEl.textContent = state.timer.running ? t('timerPauseButton') : t('timerResumeButton');
+  timerEl.classList.toggle('paused', !state.timer.running);
+}
+
+function updateBoardPausedOverlay(): void {
+  const solved = state.current.length > 0
+    && state.solution.length > 0
+    && isSolved(state.current, state.solution);
+  const paused = state.current.length > 0 && !state.timer.running && !solved;
+
+  boardEl.classList.toggle('is-paused', paused);
+  boardPausedOverlayEl.hidden = !paused;
+}
+
+function toggleTimerPause() {
+  if (timerPauseEl.disabled) return;
+
+  if (state.timer.running) {
+    freezeTimer();
+    flashStatus(t('statusTimerPaused'));
+  } else {
+    resumeTimer(state.timer);
+    syncTimerInterval();
+    updateTimerDisplay();
+    flashStatus(t('statusTimerResumed'), 'success');
+  }
+
+  updateTimerPauseButton();
+  updateBoardPausedOverlay();
+}
+
+function resumeTimerIfPaused() {
+  if (state.timer.running || timerPauseEl.disabled) return;
+
+  resumeTimer(state.timer);
+  syncTimerInterval();
+  updateTimerDisplay();
+  updateTimerPauseButton();
+  flashStatus(t('statusTimerResumed'), 'success');
 }
 
 function syncPadModeButtons() {
@@ -329,6 +380,8 @@ function renderHelp() {
   helpButtonEl.textContent = t('helpButton');
   helpTitleEl.textContent = t('helpTitle');
   helpCloseEl.textContent = t('helpClose');
+  solvedTitleEl.textContent = t('solvedTitle');
+  solvedNewGameEl.textContent = t('solvedNewGameButton');
   helpContentEl.innerHTML = '';
 
   for (const section of helpSections) {
@@ -392,8 +445,38 @@ function setHelpOpen(open: boolean): void {
   }
 }
 
+function renderSolvedRecord(recordResult: BestTimeRecordResult | null): void {
+  if (!recordResult) {
+    solvedRecordEl.hidden = true;
+    return;
+  }
+
+  solvedRecordEl.hidden = false;
+  if (recordResult.isNewRecord) {
+    solvedRecordEl.textContent = t('solvedNewRecord', { time: formatTime(recordResult.currentBestMs) });
+    solvedRecordEl.classList.add('new-record');
+  } else {
+    solvedRecordEl.textContent = t('solvedBestTime', { time: formatTime(recordResult.currentBestMs) });
+    solvedRecordEl.classList.remove('new-record');
+  }
+}
+
+function setSolvedDialogOpen(open: boolean, recordResult: BestTimeRecordResult | null = null): void {
+  if (open === !solvedOverlayEl.hidden) {
+    return;
+  }
+
+  solvedOverlayEl.hidden = !open;
+
+  if (open) {
+    solvedTimeEl.textContent = t('solvedTime', { time: formatTime(getElapsedMs(state.timer)) });
+    renderSolvedRecord(recordResult);
+    solvedNewGameEl.focus();
+  }
+}
+
 function applyLanguage(lang: string): void {
-  state.currentLang = isLanguage(lang) ? lang : 'ja';
+  state.currentLang = isLanguage(lang) ? lang : 'cn';
   document.documentElement.lang = state.currentLang;
   document.title = t('title');
 
@@ -405,6 +488,7 @@ function applyLanguage(lang: string): void {
   clueCountLabelEl.textContent = t('clueLabel');
   seedLabelEl.textContent = t('seedLabel');
   langLabelEl.textContent = t('langLabel');
+  boardPausedOverlayEl.textContent = t('boardPausedLabel');
   seedInputEl.placeholder = t('seedPlaceholder');
   updatePreferencePersistenceControl();
   newGameEl.textContent = t('newGame');
@@ -418,6 +502,7 @@ function applyLanguage(lang: string): void {
   boardEl.setAttribute('aria-label', t('boardAriaLabel'));
   undoEl.textContent = t('undo');
   redoEl.textContent = t('redo');
+  updateTimerPauseButton();
 
   updateClueOptionLabels();
   syncPadModeButtons();
@@ -429,7 +514,8 @@ function applyLanguage(lang: string): void {
 
 function initLanguage() {
   const savedLang = readPreferenceValue(LANGUAGE_STORAGE_KEY);
-  const browserLang = (navigator.language || '').toLowerCase().startsWith('ja') ? 'ja' : 'en';
+  const navLang = (navigator.language || '').toLowerCase();
+  const browserLang = navLang.startsWith('ja') ? 'ja' : 'cn';
   const preferred = savedLang && isLanguage(savedLang) ? savedLang : browserLang;
 
   applyLanguage(preferred);
@@ -457,6 +543,7 @@ function buildBoard() {
 
 function buildPad() {
   padEl.innerHTML = '';
+  numPadButtons = [];
 
   for (const value of DIGITS) {
     const button = document.createElement('button');
@@ -468,6 +555,7 @@ function buildPad() {
       applyValue(value, { highlightNote: true });
     });
     padEl.appendChild(button);
+    numPadButtons.push(button);
   }
 
   noteToggleEl = document.createElement('button');
@@ -488,18 +576,20 @@ function buildPad() {
   syncPadModeButtons();
 }
 
-function selectCell(row: number, col: number): void {
-  const previous = getSelectedElement();
-  if (previous) {
-    previous.classList.remove('selected');
+function syncPadCompletion(completedNumbers: ReadonlySet<Digit>): void {
+  for (const value of DIGITS) {
+    const button = requireIndex(numPadButtons, value - 1, 'number pad buttons');
+    const done = completedNumbers.has(value);
+    button.classList.toggle('completed', done);
+    button.disabled = done;
   }
+}
 
+function selectCell(row: number, col: number): void {
+  resumeTimerIfPaused();
   state.selectedCell = { row, col };
 
-  const current = getSelectedElement();
-  if (current) {
-    current.classList.add('selected');
-  }
+  renderBoard();
 }
 
 function ensureSelection() {
@@ -521,6 +611,7 @@ function moveSelection(rowDelta: number, colDelta: number): void {
 function clearSelectedCell() {
   if (!state.selectedCell) return;
 
+  resumeTimerIfPaused();
   const { row, col } = state.selectedCell;
   if (state.givens.has(cellKey(row, col))) return;
 
@@ -542,6 +633,7 @@ function applyValue(value: CellValue, options: ApplyValueOptions = {}): void {
   const { highlightNote = false } = options;
   if (!state.selectedCell) return;
 
+  resumeTimerIfPaused();
   const { row, col } = state.selectedCell;
   if (state.givens.has(cellKey(row, col))) return;
 
@@ -588,20 +680,24 @@ function applyValue(value: CellValue, options: ApplyValueOptions = {}): void {
   updateStatus();
 }
 
-function renderCell(row: number, col: number, conflicts: ReadonlySet<string>, completedNumbers: ReadonlySet<Digit>): void {
+function renderCell(row: number, col: number, conflicts: ReadonlySet<string>, lineHighlightKeys: ReadonlySet<string>): void {
   const currentRow = requireIndex(state.current, row, 'current board');
-  const solutionRow = requireIndex(state.solution, row, 'solution board');
   const notesRow = requireIndex(state.notes, row, 'notes board');
   const value = requireIndex(currentRow, col, 'current board row');
-  const solutionValue = requireIndex(solutionRow, col, 'solution board row');
   const cell = requireIndex(boardEl.children, row * 9 + col, 'board cells');
-  const isSelected = state.selectedCell
-    && state.selectedCell.row === row
-    && state.selectedCell.col === col;
+  const selectedCell = state.selectedCell;
+  const selectedValue = selectedCell
+    ? requireIndex(requireIndex(state.current, selectedCell.row, 'current board'), selectedCell.col, 'current board row')
+    : 0;
+  const isSelected = selectedCell
+    && selectedCell.row === row
+    && selectedCell.col === col;
+  const isSameNumber = value !== 0 && value === selectedValue;
 
   cell.classList.toggle('selected', Boolean(isSelected));
+  cell.classList.toggle('line-highlight', lineHighlightKeys.has(cellKey(row, col)));
+  cell.classList.toggle('same-number', isSameNumber);
   cell.classList.toggle('given', state.givens.has(cellKey(row, col)));
-  cell.classList.toggle('completed-number', Boolean(value && completedNumbers.has(value) && value === solutionValue));
   cell.classList.toggle('conflict', conflicts.has(cellKey(row, col)));
 
   cell.innerHTML = '';
@@ -631,21 +727,64 @@ function renderCell(row: number, col: number, conflicts: ReadonlySet<string>, co
   cell.appendChild(notesGrid);
 }
 
+function computeLineHighlightKeys(selectedValue: number): Set<string> {
+  const highlightRows = new Set<number>();
+  const highlightCols = new Set<number>();
+  const highlightBoxes = new Set<number>();
+
+  if (selectedValue !== 0 && state.current.length) {
+    for (let row = 0; row < 9; row += 1) {
+      const currentRow = requireIndex(state.current, row, 'current board');
+      for (let col = 0; col < 9; col += 1) {
+        if (requireIndex(currentRow, col, 'current board row') === selectedValue) {
+          highlightRows.add(row);
+          highlightCols.add(col);
+          highlightBoxes.add(Math.floor(row / 3) * 3 + Math.floor(col / 3));
+        }
+      }
+    }
+  }
+
+  const highlightKeys = new Set<string>();
+  for (let row = 0; row < 9; row += 1) {
+    for (let col = 0; col < 9; col += 1) {
+      if (
+        highlightRows.has(row)
+        || highlightCols.has(col)
+        || highlightBoxes.has(Math.floor(row / 3) * 3 + Math.floor(col / 3))
+      ) {
+        highlightKeys.add(cellKey(row, col));
+      }
+    }
+  }
+
+  return highlightKeys;
+}
+
 function renderBoard() {
   const conflicts = calculateConflicts(state.current);
   const completedNumbers = calculateCompletedNumbers(state.current, state.solutionDigitMap);
+  const selectedCell = state.selectedCell;
+  const selectedValue = selectedCell
+    ? requireIndex(requireIndex(state.current, selectedCell.row, 'current board'), selectedCell.col, 'current board row')
+    : 0;
+  const lineHighlightKeys = computeLineHighlightKeys(selectedValue);
 
   for (let row = 0; row < 9; row += 1) {
     for (let col = 0; col < 9; col += 1) {
-      renderCell(row, col, conflicts, completedNumbers);
+      renderCell(row, col, conflicts, lineHighlightKeys);
     }
   }
+
+  syncPadCompletion(completedNumbers);
+  updateBoardPausedOverlay();
 }
 
 function updateStatus() {
   clearStatusFlash();
 
   if (!state.current.length || !state.solution.length) {
+    setSolvedDialogOpen(false);
     setStatus(t('statusLoading'));
     return;
   }
@@ -663,13 +802,20 @@ function updateStatus() {
   if (filled && isSolved(state.current, state.solution)) {
     freezeTimer();
     if (state.solutionRevealed) {
+      setSolvedDialogOpen(false);
       setStatus(t('statusSolutionShown'), 'success');
     } else {
-      setStatus(t('statusSolved', { time: formatTime(getElapsedMs(state.timer)) }), 'success');
+      const elapsedMs = getElapsedMs(state.timer);
+      setStatus(t('statusSolved', { time: formatTime(elapsedMs) }), 'success');
+      const recordResult = isPreferencePersistenceEnabled()
+        ? recordSolveTime(state.selectedClueCount, elapsedMs)
+        : null;
+      setSolvedDialogOpen(true, recordResult);
     }
     return;
   }
 
+  setSolvedDialogOpen(false);
   setStatus(t('statusInputPrompt'));
 }
 
@@ -723,9 +869,9 @@ function loadNewPuzzle() {
 
   toggleNoteMode(false);
   state.selectedCell = { row: 0, col: 0 };
+  resetAndStartTimer();
   renderBoard();
   updateStats();
-  resetAndStartTimer();
   updateStatus();
 }
 
@@ -912,6 +1058,8 @@ resetEl.addEventListener('click', () => resetBoard(true, true));
 hintEl.addEventListener('click', revealHint);
 solveEl.addEventListener('click', showSolution);
 saveButtonEl.addEventListener('click', saveGameToFile);
+timerPauseEl.addEventListener('click', toggleTimerPause);
+boardPausedOverlayEl.addEventListener('click', toggleTimerPause);
 loadButtonEl.addEventListener('click', () => loadFileEl.click());
 loadFileEl.addEventListener('change', () => {
   const [file] = loadFileEl.files || [];
@@ -925,6 +1073,10 @@ helpOverlayEl.addEventListener('click', (event) => {
   if (event.target === helpOverlayEl) {
     setHelpOpen(false);
   }
+});
+solvedNewGameEl.addEventListener('click', () => {
+  setSolvedDialogOpen(false);
+  loadNewPuzzle();
 });
 undoEl.addEventListener('click', undoAction);
 redoEl.addEventListener('click', redoAction);

@@ -26,7 +26,7 @@ test('initial game state preserves the established application defaults', () => 
   assert.equal(state.selectedClueCount, 32);
   assert.equal(state.selectedSeedRaw, '');
   assert.equal(state.selectedSeedWasRandom, true);
-  assert.equal(state.currentLang, 'ja');
+  assert.equal(state.currentLang, 'cn');
 });
 
 test('initial game state instances do not share mutable containers', () => {

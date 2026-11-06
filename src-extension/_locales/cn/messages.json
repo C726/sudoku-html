@@ -1,0 +1,14 @@
+{
+  "extensionName": {
+    "message": "一键数独"
+  },
+  "extensionShortName": {
+    "message": "数独"
+  },
+  "extensionDescription": {
+    "message": "从工具栏一键启动数独，随时随地离线畅玩。"
+  },
+  "extensionActionTitle": {
+    "message": "打开一键数独"
+  }
+}

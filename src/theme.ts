@@ -50,11 +50,11 @@ function getInitialLanguage(): Language {
     return savedLang;
   }
 
-  return (navigator.language || '').toLowerCase().startsWith('ja') ? 'ja' : 'en';
+  return (navigator.language || '').toLowerCase().startsWith('ja') ? 'ja' : 'cn';
 }
 
 function updateThemeLabels(lang = langSelectEl.value): void {
-  const resolvedLang: Language = isLanguage(lang) ? lang : 'ja';
+  const resolvedLang: Language = isLanguage(lang) ? lang : 'cn';
   themeLabelEl.textContent = translate(resolvedLang, 'themeLabel');
 
   const labels: Record<ThemePreference, string> = {

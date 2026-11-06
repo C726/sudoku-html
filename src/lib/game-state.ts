@@ -45,7 +45,7 @@ export function createInitialGameState(): GameState {
     selectedClueCount: 32,
     selectedSeedRaw: '',
     selectedSeedWasRandom: true,
-    currentLang: 'ja'
+    currentLang: 'cn'
   };
 }
 

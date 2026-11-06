@@ -138,6 +138,126 @@ test('Ctrl+Shift+Z redoes an undone entry', async ({ page }) => {
   await expect(cell).toHaveText('1');
 });
 
+test('selecting a number highlights that number and the row, column, and box', async ({ page }) => {
+  await openEnglishPage(page);
+  await generatePuzzle(page, { clueCount: 24, seed: 424242 });
+
+  const board = await page.locator('#board .cell').evaluateAll((cells) => (
+    cells.map((cell) => ({
+      row: Number(cell.getAttribute('data-row')),
+      col: Number(cell.getAttribute('data-col')),
+      value: (cell.textContent ?? '').trim()
+    }))
+  ));
+
+  const target = board.find((cell) => cell.value !== '');
+  if (!target) {
+    throw new Error('No cell with a number was found.');
+  }
+
+  await page.locator(`#board .cell[data-row="${target.row}"][data-col="${target.col}"]`).click();
+
+  const highlighted = await page.locator('#board .cell').evaluateAll((cells) => (
+    cells.map((cell) => ({
+      row: Number(cell.getAttribute('data-row')),
+      col: Number(cell.getAttribute('data-col')),
+      value: (cell.textContent ?? '').trim(),
+      sameNumber: cell.classList.contains('same-number'),
+      lineHighlighted: cell.classList.contains('line-highlight')
+    }))
+  ));
+
+  expect(highlighted.length).toBe(81);
+
+  for (const cell of highlighted) {
+    const inRowOrColumnOrBox =
+      cell.row === target.row
+      || cell.col === target.col
+      || (
+        Math.floor(cell.row / 3) === Math.floor(target.row / 3)
+        && Math.floor(cell.col / 3) === Math.floor(target.col / 3)
+      );
+    expect(cell.lineHighlighted, `line highlight for cell ${cell.row}:${cell.col}`).toBe(inRowOrColumnOrBox);
+    expect(cell.sameNumber, `same number highlight for cell ${cell.row}:${cell.col}`).toBe(cell.value === target.value);
+  }
+
+  const emptyCell = board.find((cell) => cell.value === '');
+  if (!emptyCell) {
+    throw new Error('No empty cell was found.');
+  }
+
+  await page.locator(`#board .cell[data-row="${emptyCell.row}"][data-col="${emptyCell.col}"]`).click();
+
+  const remainingHighlights = await page.locator('#board .cell').evaluateAll((cells) => (
+    cells.filter((cell) => cell.classList.contains('same-number') || cell.classList.contains('line-highlight'))
+  ));
+
+  expect(remainingHighlights.length).toBe(0);
+});
+
+test('number pad shows a check mark for digits fully placed on the board', async ({ page }) => {
+  await openEnglishPage(page);
+  await generatePuzzle(page, { clueCount: 24, seed: 424242 });
+
+  await expect(page.locator('#pad button.num.completed')).toHaveCount(0);
+
+  await page.locator('#solve').click();
+
+  await expect(page.locator('#pad button.num.completed')).toHaveCount(9);
+  await expect(page.locator('#board .cell.completed-number')).toHaveCount(0);
+});
+
+test('chinese language is available and translates the interface', async ({ page }) => {
+  await openEnglishPage(page);
+
+  await page.locator('#lang').selectOption('cn');
+  await expect(page.locator('#title')).toHaveText('数独');
+  await expect(page.locator('#newGame')).toHaveText('新谜题');
+  await expect(page.locator('#hint')).toHaveText('获取提示');
+  await expect(page.locator('#timerPause')).toHaveText('⏸ 暂停计时');
+});
+
+test('timer pauses and resumes automatically when the board is operated', async ({ page }) => {
+  await openEnglishPage(page);
+  await generatePuzzle(page, { clueCount: 24, seed: 271828 });
+
+  await expect(page.locator('#timerPause')).toHaveText('⏸ Pause timer');
+
+  await page.locator('#timerPause').click();
+  await expect(page.locator('#timerPause')).toHaveText('▶ Resume timer');
+
+  await page.waitForTimeout(300);
+  const pausedTime = (await page.locator('#timer').textContent())?.trim();
+  await page.waitForTimeout(2500);
+  expect((await page.locator('#timer').textContent())?.trim()).toBe(pausedTime);
+
+  const target = await getFirstEmptyCell(page);
+  await page.locator(`#board .cell[data-row="${target.row}"][data-col="${target.col}"]`).click();
+  await expect(page.locator('#timerPause')).toHaveText('⏸ Pause timer');
+
+  await page.waitForTimeout(300);
+  const resumedTime = (await page.locator('#timer').textContent())?.trim();
+  await page.waitForTimeout(2500);
+  expect((await page.locator('#timer').textContent())?.trim()).not.toBe(resumedTime);
+});
+
+test('pause mask appears when paused and is fully removed after resuming', async ({ page }) => {
+  await openEnglishPage(page);
+  await generatePuzzle(page, { clueCount: 24, seed: 424242 });
+
+  await expect(page.locator('#boardPausedOverlay')).toBeHidden();
+  await expect(page.locator('#board')).not.toHaveClass(/is-paused/);
+
+  await page.locator('#timerPause').click();
+  await expect(page.locator('#board')).toHaveClass(/is-paused/);
+  await expect(page.locator('#boardPausedOverlay')).toBeVisible();
+
+  await page.locator('#boardPausedOverlay').click();
+  await expect(page.locator('#board')).not.toHaveClass(/is-paused/);
+  await expect(page.locator('#boardPausedOverlay')).toBeHidden();
+  await expect(page.locator('#timerPause')).toHaveText('⏸ Pause timer');
+});
+
 test('game keyboard shortcuts keep working after a pad button receives focus', async ({ page }) => {
   await openEnglishPage(page);
   await generatePuzzle(page, { clueCount: 24, seed: 271828 });

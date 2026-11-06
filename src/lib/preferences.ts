@@ -3,6 +3,7 @@ export const CLUE_COUNT_STORAGE_KEY = 'sudoku_clue_count';
 export const SEED_STORAGE_KEY = 'sudoku_seed';
 export const LANGUAGE_STORAGE_KEY = 'sudoku_lang';
 export const THEME_STORAGE_KEY = 'sudoku_theme';
+export const BEST_TIMES_STORAGE_KEY = 'sudoku_best_times';
 
 export interface StorageLike {
   getItem(key: string): string | null;
@@ -15,7 +16,8 @@ const PREFERENCE_STORAGE_KEYS = [
   CLUE_COUNT_STORAGE_KEY,
   SEED_STORAGE_KEY,
   LANGUAGE_STORAGE_KEY,
-  THEME_STORAGE_KEY
+  THEME_STORAGE_KEY,
+  BEST_TIMES_STORAGE_KEY
 ];
 
 function resolveStorage(storage?: StorageLike | null): StorageLike | null {

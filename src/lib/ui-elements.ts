@@ -2,10 +2,12 @@ import { requireElement } from './dom.js';
 
 export interface UiElements {
   boardEl: HTMLDivElement;
+  boardPausedOverlayEl: HTMLDivElement;
   padEl: HTMLDivElement;
   statusEl: HTMLDivElement;
   statsEl: HTMLDivElement;
   timerEl: HTMLDivElement;
+  timerPauseEl: HTMLButtonElement;
   undoEl: HTMLButtonElement;
   redoEl: HTMLButtonElement;
   helpButtonEl: HTMLButtonElement;
@@ -13,6 +15,11 @@ export interface UiElements {
   helpTitleEl: HTMLHeadingElement;
   helpContentEl: HTMLDivElement;
   helpCloseEl: HTMLButtonElement;
+  solvedOverlayEl: HTMLDivElement;
+  solvedTitleEl: HTMLHeadingElement;
+  solvedTimeEl: HTMLParagraphElement;
+  solvedRecordEl: HTMLParagraphElement;
+  solvedNewGameEl: HTMLButtonElement;
   clueCountEl: HTMLSelectElement;
   seedInputEl: HTMLInputElement;
   seedFieldEl: HTMLDivElement;
@@ -39,10 +46,12 @@ export interface UiElements {
 export function requireUiElements(): UiElements {
   return {
     boardEl: requireElement('board', HTMLDivElement),
+    boardPausedOverlayEl: requireElement('boardPausedOverlay', HTMLDivElement),
     padEl: requireElement('pad', HTMLDivElement),
     statusEl: requireElement('status', HTMLDivElement),
     statsEl: requireElement('stats', HTMLDivElement),
     timerEl: requireElement('timer', HTMLDivElement),
+  timerPauseEl: requireElement('timerPause', HTMLButtonElement),
     undoEl: requireElement('undo', HTMLButtonElement),
     redoEl: requireElement('redo', HTMLButtonElement),
     helpButtonEl: requireElement('help', HTMLButtonElement),
@@ -50,6 +59,11 @@ export function requireUiElements(): UiElements {
     helpTitleEl: requireElement('helpTitle', HTMLHeadingElement),
     helpContentEl: requireElement('helpContent', HTMLDivElement),
     helpCloseEl: requireElement('helpClose', HTMLButtonElement),
+    solvedOverlayEl: requireElement('solvedOverlay', HTMLDivElement),
+    solvedTitleEl: requireElement('solvedTitle', HTMLHeadingElement),
+    solvedTimeEl: requireElement('solvedTime', HTMLParagraphElement),
+    solvedRecordEl: requireElement('solvedRecord', HTMLParagraphElement),
+    solvedNewGameEl: requireElement('solvedNewGame', HTMLButtonElement),
     clueCountEl: requireElement('clueCount', HTMLSelectElement),
     seedInputEl: requireElement('seed', HTMLInputElement),
     seedFieldEl: requireElement('seedField', HTMLDivElement),

@@ -24,9 +24,10 @@
   --timer-text: #312e81;
   --error: #ef4444;
   --success: #15803d;
-  --complete-bg: #dcfce7;
-  --complete-text: #166534;
   --conflict-bg: #fef3c7;
+  --line-highlight-bg: #dcf5f2;
+  --same-number-bg: #99f6e4;
+  --same-number-text: #115e59;
   --focus-ring: rgba(20, 184, 166, 0.35);
   --selected-ring: rgba(20, 184, 166, 0.45);
   --active-ring: rgba(20, 184, 166, 0.2);
@@ -69,9 +70,10 @@
   --timer-text: #e0e7ff;
   --error: #f87171;
   --success: #86efac;
-  --complete-bg: #14532d;
-  --complete-text: #bbf7d0;
   --conflict-bg: #713f12;
+  --line-highlight-bg: #0f3d39;
+  --same-number-bg: #115e59;
+  --same-number-text: #5eead4;
   --focus-ring: rgba(45, 212, 191, 0.42);
   --selected-ring: rgba(45, 212, 191, 0.58);
   --active-ring: rgba(45, 212, 191, 0.28);
@@ -211,6 +213,12 @@ h1 {
   gap: 10px;
 }
 
+.timer-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .timer {
   min-width: 108px;
   padding: 10px 14px;
@@ -219,6 +227,10 @@ h1 {
   color: var(--timer-text);
   font-weight: 700;
   text-align: center;
+}
+
+.timer.paused {
+  opacity: 0.55;
 }
 
 label {
@@ -323,6 +335,34 @@ button.ghost {
   box-shadow: 0 10px 24px var(--shadow-board);
 }
 
+.board-zone {
+  position: relative;
+  min-width: 0;
+}
+
+.board.is-paused {
+  filter: blur(14px);
+}
+
+.board-paused-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--overlay);
+  color: var(--primary-text);
+  font-size: clamp(16px, 2.2vw, 22px);
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+}
+
+.board-paused-overlay[hidden] {
+  display: none;
+}
+
 .cell {
   position: relative;
   min-width: 0;
@@ -370,13 +410,17 @@ button.ghost {
   z-index: 1;
 }
 
-.cell.completed-number {
-  background: var(--complete-bg);
-  color: var(--complete-text);
-}
-
 .cell.conflict {
   background: var(--conflict-bg);
+}
+
+.cell.line-highlight {
+  background: var(--line-highlight-bg);
+}
+
+.cell.same-number {
+  background: var(--same-number-bg);
+  color: var(--same-number-text);
 }
 
 .cell .notes {
@@ -451,6 +495,21 @@ button.ghost {
 
 .pad button.num {
   font-size: 20px;
+  position: relative;
+}
+
+.pad button.num:disabled {
+  cursor: not-allowed;
+}
+
+.pad button.num.completed::after {
+  content: '✔';
+  position: absolute;
+  top: 4px;
+  right: 7px;
+  font-size: 17px;
+  line-height: 1;
+  color: var(--success);
 }
 
 .pad .pad-action,
@@ -572,6 +631,35 @@ button.ghost {
 .help-header h2 {
   margin: 0;
   font-size: 24px;
+}
+
+.solved-dialog {
+  width: min(360px, 100%);
+  text-align: center;
+}
+
+.solved-dialog h2 {
+  margin: 0 0 10px;
+  font-size: 22px;
+}
+
+.solved-time {
+  margin: 0 0 18px;
+  color: var(--text-muted);
+}
+
+.solved-record {
+  margin: 0 0 18px;
+  color: var(--text-muted);
+}
+
+.solved-record.new-record {
+  color: var(--success);
+  font-weight: 700;
+}
+
+.solved-dialog button.primary {
+  width: 100%;
 }
 
 .help-content {
@@ -708,6 +796,10 @@ button.ghost {
 
   .settings-grid {
     grid-template-columns: 1fr;
+  }
+
+  .timer-group {
+    width: 100%;
   }
 
   .timer {

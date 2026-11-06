@@ -30,6 +30,12 @@ export function startTimer(timer: TimerState, now = Date.now()): void {
   timer.running = true;
 }
 
+export function resumeTimer(timer: TimerState, now = Date.now()): void {
+  if (timer.running || timer.startedAt !== null) return;
+  timer.startedAt = now;
+  timer.running = true;
+}
+
 export function pauseTimer(timer: TimerState, now = Date.now()): void {
   if (!timer.running || timer.startedAt === null) return;
   timer.elapsedMs += now - timer.startedAt;

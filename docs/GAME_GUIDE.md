@@ -9,11 +9,13 @@
 - Select a cell and enter a number from 1 to 9.
 - The puzzle is complete when every row, column, and 3x3 block outlined by the thick lines contains each number from 1 to 9 exactly once.
 - Every generated puzzle has exactly one solution.
-- Duplicate numbers and numbers that have been correctly completed in all nine positions are highlighted.
+- Duplicate numbers are highlighted. Once a number is correctly placed in all nine positions, a ✔ mark appears on its number pad button.
+- Selecting a cell with a number highlights that number in every cell, along with the selected cell's row, column, and 3x3 box.
 - You can play offline. Gameplay itself does not require any internet connection.
 
 ## Controls and Buttons Above the Board
 
+- `Timer`: Shows the elapsed time. Click the button next to it to pause or resume the timer. The timer resumes automatically when you operate the board.
 - `Clues`: Sets the number of starting clues for the next puzzle.
 - `Seed`: Enter the same seed to recreate the same puzzle. Leave it empty for a random puzzle.
 - `Language`: Switches the interface language.
