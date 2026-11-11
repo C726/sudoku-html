@@ -22,6 +22,10 @@
   --help-text: #334155;
   --timer-bg: #eef2ff;
   --timer-text: #312e81;
+  --pause-bg: #ccfbf1;
+  --pause-bg-hover: #99f6e4;
+  --pause-border: #0f766e;
+  --pause-text: #115e59;
   --error: #ef4444;
   --success: #15803d;
   --conflict-bg: #fef3c7;
@@ -68,6 +72,10 @@
   --help-text: #d1d5db;
   --timer-bg: #1e1b4b;
   --timer-text: #e0e7ff;
+  --pause-bg: #134e4a;
+  --pause-bg-hover: #115e59;
+  --pause-border: #14b8a6;
+  --pause-text: #5eead4;
   --error: #f87171;
   --success: #86efac;
   --conflict-bg: #713f12;
@@ -231,6 +239,17 @@ h1 {
 
 .timer.paused {
   opacity: 0.55;
+}
+
+#timerPause {
+  background: var(--pause-bg);
+  border-color: var(--pause-border);
+  color: var(--pause-text);
+  font-weight: 700;
+}
+
+#timerPause:hover {
+  background: var(--pause-bg-hover);
 }
 
 label {

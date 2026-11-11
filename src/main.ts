@@ -3,6 +3,7 @@ import {
   cloneBoard,
   createNotesBoard,
   restoreSnapshot,
+  type CellPosition,
   type HistorySnapshot
 } from './lib/history.js';
 import {
@@ -56,6 +57,12 @@ const {
   persistPreferencesEl,
   preferenceSaveToggleEl,
   preferenceSaveLabelEl,
+  sameNumberHighlightEl,
+  sameNumberHighlightToggleEl,
+  sameNumberHighlightLabelEl,
+  selectedCellHighlightEl,
+  selectedCellHighlightToggleEl,
+  selectedCellHighlightLabelEl,
   saveButtonEl,
   loadButtonEl,
   loadFileEl,
@@ -84,6 +91,8 @@ let clearPadButtonEl: HTMLButtonElement | null = null;
 let numPadButtons: HTMLButtonElement[] = [];
 let timerInterval: ReturnType<typeof setInterval> | null = null;
 let statusResetTimeout: ReturnType<typeof setTimeout> | null = null;
+let highlightSameNumberLines = false;
+let highlightSelectedCellLines = false;
 
 function t(key: TranslationKey, vars: TranslationVariables = {}): string {
   return translate(state.currentLang, key, vars);
@@ -132,6 +141,37 @@ function updatePreferencePersistenceControl() {
   preferenceSaveLabelEl.textContent = t('preferenceSaveLabel');
   preferenceSaveToggleEl.title = t('preferenceSaveTitle');
   persistPreferencesEl.setAttribute('aria-label', t('preferenceSaveTitle'));
+}
+
+function updateSameNumberHighlightControl() {
+  sameNumberHighlightToggleEl.classList.toggle('is-enabled', highlightSameNumberLines);
+  sameNumberHighlightLabelEl.textContent = t('sameNumberHighlightLabel');
+  sameNumberHighlightToggleEl.title = t('sameNumberHighlightTitle');
+  sameNumberHighlightEl.setAttribute('aria-label', t('sameNumberHighlightTitle'));
+}
+
+function updateSelectedCellHighlightControl() {
+  selectedCellHighlightToggleEl.classList.toggle('is-enabled', highlightSelectedCellLines);
+  selectedCellHighlightLabelEl.textContent = t('selectedCellHighlightLabel');
+  selectedCellHighlightToggleEl.title = t('selectedCellHighlightTitle');
+  selectedCellHighlightEl.setAttribute('aria-label', t('selectedCellHighlightTitle'));
+}
+
+function initLineHighlightPreferences() {
+  updateSameNumberHighlightControl();
+  updateSelectedCellHighlightControl();
+
+  sameNumberHighlightEl.addEventListener('change', () => {
+    highlightSameNumberLines = sameNumberHighlightEl.checked;
+    updateSameNumberHighlightControl();
+    renderBoard();
+  });
+
+  selectedCellHighlightEl.addEventListener('change', () => {
+    highlightSelectedCellLines = selectedCellHighlightEl.checked;
+    updateSelectedCellHighlightControl();
+    renderBoard();
+  });
 }
 
 function storeCurrentPreferences() {
@@ -491,6 +531,8 @@ function applyLanguage(lang: string): void {
   boardPausedOverlayEl.textContent = t('boardPausedLabel');
   seedInputEl.placeholder = t('seedPlaceholder');
   updatePreferencePersistenceControl();
+  updateSameNumberHighlightControl();
+  updateSelectedCellHighlightControl();
   newGameEl.textContent = t('newGame');
   resetEl.textContent = t('reset');
   hintEl.textContent = t('hint');
@@ -727,19 +769,28 @@ function renderCell(row: number, col: number, conflicts: ReadonlySet<string>, li
   cell.appendChild(notesGrid);
 }
 
-function computeLineHighlightKeys(selectedValue: number): Set<string> {
+function computeLineHighlightKeys(selectedCell: CellPosition | null, selectedValue: number): Set<string> {
   const highlightRows = new Set<number>();
   const highlightCols = new Set<number>();
   const highlightBoxes = new Set<number>();
 
-  if (selectedValue !== 0 && state.current.length) {
-    for (let row = 0; row < 9; row += 1) {
-      const currentRow = requireIndex(state.current, row, 'current board');
-      for (let col = 0; col < 9; col += 1) {
-        if (requireIndex(currentRow, col, 'current board row') === selectedValue) {
-          highlightRows.add(row);
-          highlightCols.add(col);
-          highlightBoxes.add(Math.floor(row / 3) * 3 + Math.floor(col / 3));
+  const bothLineHighlightsEnabled = highlightSameNumberLines && highlightSelectedCellLines;
+  if (selectedCell && state.current.length && !bothLineHighlightsEnabled) {
+    if (highlightSameNumberLines || highlightSelectedCellLines) {
+      highlightRows.add(selectedCell.row);
+      highlightCols.add(selectedCell.col);
+      highlightBoxes.add(Math.floor(selectedCell.row / 3) * 3 + Math.floor(selectedCell.col / 3));
+    }
+
+    if (highlightSameNumberLines && selectedValue !== 0) {
+      for (let row = 0; row < 9; row += 1) {
+        const currentRow = requireIndex(state.current, row, 'current board');
+        for (let col = 0; col < 9; col += 1) {
+          if (requireIndex(currentRow, col, 'current board row') === selectedValue) {
+            highlightRows.add(row);
+            highlightCols.add(col);
+            highlightBoxes.add(Math.floor(row / 3) * 3 + Math.floor(col / 3));
+          }
         }
       }
     }
@@ -768,7 +819,7 @@ function renderBoard() {
   const selectedValue = selectedCell
     ? requireIndex(requireIndex(state.current, selectedCell.row, 'current board'), selectedCell.col, 'current board row')
     : 0;
-  const lineHighlightKeys = computeLineHighlightKeys(selectedValue);
+  const lineHighlightKeys = computeLineHighlightKeys(selectedCell, selectedValue);
 
   for (let row = 0; row < 9; row += 1) {
     for (let col = 0; col < 9; col += 1) {
@@ -1087,6 +1138,7 @@ buildPad();
 initPreferencePersistence();
 initLanguage();
 initPuzzlePreferences();
+initLineHighlightPreferences();
 setStatus(t('statusLoading'));
 updateTimerDisplay();
 loadNewPuzzle();

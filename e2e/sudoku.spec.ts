@@ -138,26 +138,25 @@ test('Ctrl+Shift+Z redoes an undone entry', async ({ page }) => {
   await expect(cell).toHaveText('1');
 });
 
-test('selecting a number highlights that number and the row, column, and box', async ({ page }) => {
-  await openEnglishPage(page);
-  await generatePuzzle(page, { clueCount: 24, seed: 424242 });
+interface HighlightState {
+  row: number;
+  col: number;
+  value: string;
+  sameNumber: boolean;
+  lineHighlighted: boolean;
+}
 
-  const board = await page.locator('#board .cell').evaluateAll((cells) => (
-    cells.map((cell) => ({
-      row: Number(cell.getAttribute('data-row')),
-      col: Number(cell.getAttribute('data-col')),
-      value: (cell.textContent ?? '').trim()
-    }))
-  ));
+function isSameRowColumnOrBox(row: number, col: number, targetRow: number, targetCol: number): boolean {
+  return row === targetRow
+    || col === targetCol
+    || (
+      Math.floor(row / 3) === Math.floor(targetRow / 3)
+      && Math.floor(col / 3) === Math.floor(targetCol / 3)
+    );
+}
 
-  const target = board.find((cell) => cell.value !== '');
-  if (!target) {
-    throw new Error('No cell with a number was found.');
-  }
-
-  await page.locator(`#board .cell[data-row="${target.row}"][data-col="${target.col}"]`).click();
-
-  const highlighted = await page.locator('#board .cell').evaluateAll((cells) => (
+async function readHighlightStates(page: Page): Promise<HighlightState[]> {
+  return page.locator('#board .cell').evaluateAll((cells) => (
     cells.map((cell) => ({
       row: Number(cell.getAttribute('data-row')),
       col: Number(cell.getAttribute('data-col')),
@@ -166,18 +165,31 @@ test('selecting a number highlights that number and the row, column, and box', a
       lineHighlighted: cell.classList.contains('line-highlight')
     }))
   ));
+}
 
+async function selectBoardCell(page: Page, row: number, col: number): Promise<void> {
+  await page.locator(`#board .cell[data-row="${row}"][data-col="${col}"]`).click();
+}
+
+test('highlight switches are off by default and only same-number cells are highlighted', async ({ page }) => {
+  await openEnglishPage(page);
+  await generatePuzzle(page, { clueCount: 24, seed: 424242 });
+
+  await expect(page.locator('#sameNumberHighlight')).not.toBeChecked();
+  await expect(page.locator('#selectedCellHighlight')).not.toBeChecked();
+
+  const board = await readHighlightStates(page);
+  const target = board.find((cell) => cell.value !== '');
+  if (!target) {
+    throw new Error('No cell with a number was found.');
+  }
+
+  await selectBoardCell(page, target.row, target.col);
+
+  const highlighted = await readHighlightStates(page);
   expect(highlighted.length).toBe(81);
-
   for (const cell of highlighted) {
-    const inRowOrColumnOrBox =
-      cell.row === target.row
-      || cell.col === target.col
-      || (
-        Math.floor(cell.row / 3) === Math.floor(target.row / 3)
-        && Math.floor(cell.col / 3) === Math.floor(target.col / 3)
-      );
-    expect(cell.lineHighlighted, `line highlight for cell ${cell.row}:${cell.col}`).toBe(inRowOrColumnOrBox);
+    expect(cell.lineHighlighted, `line highlight for cell ${cell.row}:${cell.col}`).toBe(false);
     expect(cell.sameNumber, `same number highlight for cell ${cell.row}:${cell.col}`).toBe(cell.value === target.value);
   }
 
@@ -186,13 +198,96 @@ test('selecting a number highlights that number and the row, column, and box', a
     throw new Error('No empty cell was found.');
   }
 
-  await page.locator(`#board .cell[data-row="${emptyCell.row}"][data-col="${emptyCell.col}"]`).click();
+  await selectBoardCell(page, emptyCell.row, emptyCell.col);
 
-  const remainingHighlights = await page.locator('#board .cell').evaluateAll((cells) => (
-    cells.filter((cell) => cell.classList.contains('same-number') || cell.classList.contains('line-highlight'))
-  ));
-
+  const remainingHighlights = (await readHighlightStates(page)).filter((cell) => cell.sameNumber || cell.lineHighlighted);
   expect(remainingHighlights.length).toBe(0);
+});
+
+test('same-number switch highlights all rows, columns, and boxes containing the number', async ({ page }) => {
+  await openEnglishPage(page);
+  await generatePuzzle(page, { clueCount: 24, seed: 424242 });
+
+  await page.locator('#sameNumberHighlight').check();
+
+  const board = await readHighlightStates(page);
+  const target = board.find((cell) => cell.value !== '');
+  if (!target) {
+    throw new Error('No cell with a number was found.');
+  }
+
+  await selectBoardCell(page, target.row, target.col);
+
+  const sameNumberCells = board.filter((cell) => cell.value === target.value);
+  const highlighted = await readHighlightStates(page);
+  for (const cell of highlighted) {
+    const inSameNumberLine = sameNumberCells.some((same) =>
+      isSameRowColumnOrBox(same.row, same.col, cell.row, cell.col)
+    );
+    const expected = inSameNumberLine || isSameRowColumnOrBox(cell.row, cell.col, target.row, target.col);
+    expect(cell.lineHighlighted, `line highlight for cell ${cell.row}:${cell.col}`).toBe(expected);
+    expect(cell.sameNumber, `same number highlight for cell ${cell.row}:${cell.col}`).toBe(cell.value === target.value);
+  }
+
+  const emptyCell = board.find((cell) => cell.value === '');
+  if (!emptyCell) {
+    throw new Error('No empty cell was found.');
+  }
+
+  await selectBoardCell(page, emptyCell.row, emptyCell.col);
+
+  const highlightedAfterEmpty = await readHighlightStates(page);
+  for (const cell of highlightedAfterEmpty) {
+    expect(cell.lineHighlighted, `line highlight for cell ${cell.row}:${cell.col}`).toBe(
+      isSameRowColumnOrBox(cell.row, cell.col, emptyCell.row, emptyCell.col)
+    );
+    expect(cell.sameNumber, `same number highlight for cell ${cell.row}:${cell.col}`).toBe(false);
+  }
+});
+
+test('selected-cell switch highlights only the selected cell row, column, and box', async ({ page }) => {
+  await openEnglishPage(page);
+  await generatePuzzle(page, { clueCount: 24, seed: 424242 });
+
+  await page.locator('#selectedCellHighlight').check();
+
+  const board = await readHighlightStates(page);
+  const target = board.find((cell) => cell.value !== '');
+  if (!target) {
+    throw new Error('No cell with a number was found.');
+  }
+
+  await selectBoardCell(page, target.row, target.col);
+
+  const highlighted = await readHighlightStates(page);
+  for (const cell of highlighted) {
+    expect(cell.lineHighlighted, `line highlight for cell ${cell.row}:${cell.col}`).toBe(
+      isSameRowColumnOrBox(cell.row, cell.col, target.row, target.col)
+    );
+    expect(cell.sameNumber, `same number highlight for cell ${cell.row}:${cell.col}`).toBe(cell.value === target.value);
+  }
+});
+
+test('both switches on highlight only the selected number cells', async ({ page }) => {
+  await openEnglishPage(page);
+  await generatePuzzle(page, { clueCount: 24, seed: 424242 });
+
+  await page.locator('#sameNumberHighlight').check();
+  await page.locator('#selectedCellHighlight').check();
+
+  const board = await readHighlightStates(page);
+  const target = board.find((cell) => cell.value !== '');
+  if (!target) {
+    throw new Error('No cell with a number was found.');
+  }
+
+  await selectBoardCell(page, target.row, target.col);
+
+  const highlighted = await readHighlightStates(page);
+  for (const cell of highlighted) {
+    expect(cell.lineHighlighted, `line highlight for cell ${cell.row}:${cell.col}`).toBe(false);
+    expect(cell.sameNumber, `same number highlight for cell ${cell.row}:${cell.col}`).toBe(cell.value === target.value);
+  }
 });
 
 test('number pad shows a check mark for digits fully placed on the board', async ({ page }) => {

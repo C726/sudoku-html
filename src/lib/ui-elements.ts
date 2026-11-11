@@ -28,6 +28,12 @@ export interface UiElements {
   persistPreferencesEl: HTMLInputElement;
   preferenceSaveToggleEl: HTMLLabelElement;
   preferenceSaveLabelEl: HTMLSpanElement;
+  sameNumberHighlightEl: HTMLInputElement;
+  sameNumberHighlightToggleEl: HTMLLabelElement;
+  sameNumberHighlightLabelEl: HTMLSpanElement;
+  selectedCellHighlightEl: HTMLInputElement;
+  selectedCellHighlightToggleEl: HTMLLabelElement;
+  selectedCellHighlightLabelEl: HTMLSpanElement;
   saveButtonEl: HTMLButtonElement;
   loadButtonEl: HTMLButtonElement;
   loadFileEl: HTMLInputElement;
@@ -72,6 +78,12 @@ export function requireUiElements(): UiElements {
     persistPreferencesEl: requireElement('persistPreferences', HTMLInputElement),
     preferenceSaveToggleEl: requireElement('preferenceSaveToggle', HTMLLabelElement),
     preferenceSaveLabelEl: requireElement('preferenceSaveLabel', HTMLSpanElement),
+    sameNumberHighlightEl: requireElement('sameNumberHighlight', HTMLInputElement),
+    sameNumberHighlightToggleEl: requireElement('sameNumberHighlightToggle', HTMLLabelElement),
+    sameNumberHighlightLabelEl: requireElement('sameNumberHighlightLabel', HTMLSpanElement),
+    selectedCellHighlightEl: requireElement('selectedCellHighlight', HTMLInputElement),
+    selectedCellHighlightToggleEl: requireElement('selectedCellHighlightToggle', HTMLLabelElement),
+    selectedCellHighlightLabelEl: requireElement('selectedCellHighlightLabel', HTMLSpanElement),
     saveButtonEl: requireElement('saveGame', HTMLButtonElement),
     loadButtonEl: requireElement('loadGame', HTMLButtonElement),
     loadFileEl: requireElement('loadFile', HTMLInputElement),

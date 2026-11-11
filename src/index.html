@@ -65,19 +65,41 @@
         </div>
 
         <div class="field">
-          <div class="field-label-row">
-            <label id="themeLabel" for="theme">主题</label>
-            <label class="preference-save-toggle" id="preferenceSaveToggle" title="在当前浏览器中保存线索数、种子值、语言和主题偏好">
-              <input id="persistPreferences" type="checkbox" />
-              <span id="preferenceSaveLabel">保存设置</span>
-            </label>
-          </div>
+          <label id="themeLabel" for="theme">主题</label>
           <select id="theme">
             <option value="system">跟随系统</option>
             <option value="light">浅色模式</option>
             <option value="dark">深色模式</option>
           </select>
         </div>
+
+        <div class="field">
+          <div class="field-label-row">
+            <label class="preference-save-toggle" id="selectedCellHighlightToggle" title="开启后，选中格子时，该格子所在的行、列、3×3 宫都会高亮，棋盘上其他该数字只高亮其所在格子。两个开关同时开启时，只高亮棋盘上选中数字所在的格子。">
+              <input id="selectedCellHighlight" type="checkbox" />
+              <span id="selectedCellHighlightLabel">选中格子行列宫高亮</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label-row">
+            <label class="preference-save-toggle" id="sameNumberHighlightToggle" title="开启后，选中某个有数字的格子时，棋盘上所有包含该数字的行、列、3×3 宫以及选中格子所在的行、列、3×3 宫都会高亮；关闭后仅高亮选中数字所在的格子。两个开关同时开启时，只高亮棋盘上选中数字所在的格子。">
+              <input id="sameNumberHighlight" type="checkbox" />
+              <span id="sameNumberHighlightLabel">相同数字行列宫高亮</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label-row">
+            <label class="preference-save-toggle" id="preferenceSaveToggle" title="在当前浏览器中保存线索数、种子值、语言和主题偏好">
+              <input id="persistPreferences" type="checkbox" />
+              <span id="preferenceSaveLabel">保存设置</span>
+            </label>
+          </div>
+        </div>
+      </div>
       </div>
 
       <div class="action-row primary-actions">
